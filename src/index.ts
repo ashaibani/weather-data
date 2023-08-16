@@ -47,8 +47,8 @@ type WeatherData = {
 app.post('/api/login', express.json(), async (req: express.Request, res: express.Response, next: any) => {
     const { email, password } = req.body;
     if (!email || !password) {
-        res.status(403);
-        next(new Error('Invalid login credentials.'));
+        res.status(403)
+            .json({ message: "Invalid login credentials." })
     }
     const user = await db.user.findUnique({
         where: {
@@ -57,14 +57,16 @@ app.post('/api/login', express.json(), async (req: express.Request, res: express
     })
 
     if (!user) {
-        res.status(403);
-        next(new Error('Invalid login credentials.'));
+        res.status(403)
+            .json({ message: "Invalid login credentials." })
+        return
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-        res.status(403);
-        next(new Error('Invalid login credentials.'));
+        res.status(403)
+            .json({ message: "Invalid login credentials." })
+        return
     }
 
 
@@ -79,8 +81,8 @@ app.post('/api/login', express.json(), async (req: express.Request, res: express
 // body, which should then be stored in a way that allows for it to be queryable.
 app.post('/api/sensors/upload', express.text(), async (req: JWTRequest, res: express.Response, next: any) => {
     if (req.body.length == 0) {
-        res.status(500);
-        next(new Error('Invalid csv file provided.'));
+        res.status(500).json({ message: "Invalid csv file provided." })
+        return
     }
 
     const headers = ['timestamp', 'temperature', 'rainfall', 'humidity', 'wind_speed', 'visibility'];
@@ -93,12 +95,14 @@ app.post('/api/sensors/upload', express.text(), async (req: JWTRequest, res: exp
     // parse csv content from request body
     await parse(req.body, options, async (error, result: WeatherData[]) => {
         if (error) {
-            res.status(500);
-            next(new Error('Invalid csv file provided.'));
+            res.status(500)
+                .json({ message: "Invalid csv file provided." })
+            return
         }
         if (result.length == 0) {
-            res.status(500);
-            next(new Error('Invalid csv file provided.'));
+            res.status(500)
+                .json({ message: "Invalid csv file provided." })
+            return
         }
 
         for (let index = 0; index < result.length; index++) {
@@ -137,7 +141,7 @@ app.post('/api/sensors/upload', express.text(), async (req: JWTRequest, res: exp
 // “ascending”.
 // 3. Aggregate - the column can be any of the data columns in the CSV (not timestamp) and should
 // support the aggregate functions of COUNT, MAX, MIN, SUM and AVG.
-app.post('/api/sensors/search', express.json(), async (req: JWTRequest, res: express.Response, next: any) => {
+app.post('/api/sensors/search', express.json(), async (req: JWTRequest, res: express.Response) => {
     const { filters, sort, aggregate } = req.body
     var searchParams: Prisma.WeatherDataFindManyArgs = {}
     var whereClause: Prisma.WeatherDataWhereInput = {}
@@ -211,16 +215,18 @@ app.post('/api/sensors/search', express.json(), async (req: JWTRequest, res: exp
         try {
             results = await db.weatherData.aggregate(aggregateClause)
         } catch (error) {
-            res.status(500);
-            next(new Error('Invalid search parameters provided.'));
+            res.status(500)
+                .json({ message: "Invalid search parameters provided. " })
+            return
         }
 
     } else {
         try {
             results = await db.weatherData.findMany(searchParams)
         } catch (error) {
-            res.status(500);
-            next(new Error('Invalid search parameters provided.'));
+            res.status(500)
+                .json({ message: "Invalid search parameters provided. " })
+            return
         }
 
     }
