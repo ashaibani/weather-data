@@ -24,6 +24,14 @@ app.use(
     }).unless({ path: ["/api/login"] })
 );
 
+app.use(function (err: any, req: JWTRequest, res: express.Response, next: any) {
+    if (err.name === "UnauthorizedError") {
+        res.status(401).send("Invalid JWT Token.");
+    } else {
+        next(err);
+    }
+});
+
 // WeatherData data modal of data returned by weather sensors
 type WeatherData = {
     // timestamp in seconds
