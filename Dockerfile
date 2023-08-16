@@ -3,7 +3,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.json /app/
+COPY package.json tsconfig.json /app/
 COPY src/index.ts /app/
 COPY prisma /app/prisma
 
