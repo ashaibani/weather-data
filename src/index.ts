@@ -4,15 +4,20 @@ import { expressjwt, Request as JWTRequest } from "express-jwt";
 import { Options, parse } from "csv-parse";
 import { Prisma } from '@prisma/client';
 
+// init libraries + prisma client
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const db = new PrismaClient();
 const app = express()
+const cookieParser = require('cookie-parser')
 const dotenv = require('dotenv');
 dotenv.config();
 
 // get jwt secret from .env
 const jwtSecret = process.env.JWT_SECRET ?? "123placehol123dersecret123"
+
+// setup cookie parser middleware
+app.use(cookieParser())
 
 // setup jwt middleware
 app.use(
@@ -20,10 +25,23 @@ app.use(
         secret: jwtSecret,
         algorithms: ["HS256"],
 
+        // fetch access token header or cookie
+        getToken: function fromHeaderOrQuerystring(req) {
+            if (
+                req.headers.authorization &&
+                req.headers.authorization.split(" ")[0] === "Bearer"
+            ) {
+                return req.headers.authorization.split(" ")[1];
+            } else if (req.cookies && req.cookies.access_token) {
+                return req.cookies.access_token.split(" ")[1];
+            }
+            return null;
+        },
         // exclude login path
     }).unless({ path: ["/api/login"] })
 );
 
+// handle unauthorizederror from jwt middleware
 app.use(function (err: any, req: JWTRequest, res: express.Response, next: any) {
     if (err.name === "UnauthorizedError") {
         res.status(401).send("Invalid JWT Token.");
@@ -77,10 +95,11 @@ app.post('/api/login', express.json(), async (req: express.Request, res: express
         return
     }
 
-
-    res.json({
-        accessToken: sign(req.body.email, jwtSecret)
-    })
+    const accessToken = sign(req.body.email, jwtSecret)
+    res.cookie('access_token', 'Bearer ' + accessToken, {})
+        .json({
+            accessToken
+        })
 })
 
 
@@ -93,6 +112,7 @@ app.post('/api/sensors/upload', express.text(), async (req: JWTRequest, res: exp
         return
     }
 
+    // csv parser options
     const headers = ['timestamp', 'temperature', 'rainfall', 'humidity', 'wind_speed', 'visibility'];
     var options: Options = {
         delimiter: ',',
@@ -113,6 +133,7 @@ app.post('/api/sensors/upload', express.text(), async (req: JWTRequest, res: exp
             return
         }
 
+        // each sensor data gets written to the db
         for (let index = 0; index < result.length; index++) {
             const weatherData = result[index];
             await db.weatherData.create({
@@ -219,7 +240,7 @@ app.post('/api/sensors/search', express.json(), async (req: JWTRequest, res: exp
                 aggregateClause._sum = localAggregateClause
                 break
         }
-
+        // set results to aggregate results
         try {
             results = await db.weatherData.aggregate(aggregateClause)
         } catch (error) {
@@ -229,6 +250,7 @@ app.post('/api/sensors/search', express.json(), async (req: JWTRequest, res: exp
         }
 
     } else {
+        // set results to search results
         try {
             results = await db.weatherData.findMany(searchParams)
         } catch (error) {

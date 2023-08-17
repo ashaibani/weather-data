@@ -14,18 +14,19 @@ Default Login:
 
 #### Docker (recommended):
 
-1. Run
+1. Run:
 
    ```
-   docker run -d -p 3005:3005 ashaibani/weather-data:main
+   docker run -d -p 3005:3005 -e JWT_SECRET=somethingsecret ashaibani/weather-data:main
    ```
 
 #### Build locally:
 
 1. Clone this repo
-2. Run
+2. Run:
 
    ```
    npm i
+   npx prisma generate
    npm run start
    ```
